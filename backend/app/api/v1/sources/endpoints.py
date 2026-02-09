@@ -47,3 +47,19 @@ async def test_connection(request: TestConnectionRequest):
         return TestConnectionResponse(success=result["success"], message=result["message"])
     except Exception as e:
         return TestConnectionResponse(success=False, message=str(e))
+
+@router.get("/{source_id}/tables")
+async def get_tables(source_id: int):
+    try:
+        tables = await data_source_service.get_tables(source_id)
+        return tables
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/{source_id}/fields/{table_name}")
+async def get_fields(source_id: int, table_name: str):
+    try:
+        fields = await data_source_service.get_fields(source_id, table_name)
+        return fields
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

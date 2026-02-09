@@ -176,3 +176,124 @@ class DataSourceService:
             return {"success": True, "message": f"API请求成功，状态码: {response.status_code}"}
         except Exception as e:
             return {"success": False, "message": str(e)}
+
+    async def get_tables(self, source_id: int) -> List[str]:
+        """获取数据源下的表列表"""
+        try:
+            # 获取数据源信息
+            data_source = await self.get_by_id(source_id)
+            
+            # 根据数据源类型返回不同的表列表
+            if data_source.type == "database":
+                if data_source.db_type == "mysql":
+                    conn = mysql.connector.connect(
+                        host=data_source.host,
+                        port=data_source.port,
+                        user=data_source.username,
+                        password=data_source.password,
+                        database=data_source.database
+                    )
+                    cursor = conn.cursor()
+                    cursor.execute("SHOW TABLES")
+                    tables = [table[0] for table in cursor.fetchall()]
+                    cursor.close()
+                    conn.close()
+                    return tables
+                elif data_source.db_type == "postgresql":
+                    conn = psycopg2.connect(
+                        host=data_source.host,
+                        port=data_source.port,
+                        database=data_source.database,
+                        user=data_source.username,
+                        password=data_source.password
+                    )
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+                    tables = [table[0] for table in cursor.fetchall()]
+                    cursor.close()
+                    conn.close()
+                    return tables
+                elif data_source.db_type == "oracle":
+                    conn = oracledb.connect(
+                        user=data_source.username,
+                        password=data_source.password,
+                        dsn=f"{data_source.host}:{data_source.port}/{data_source.database}"
+                    )
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT table_name FROM user_tables")
+                    tables = [table[0] for table in cursor.fetchall()]
+                    cursor.close()
+                    conn.close()
+                    return tables
+            elif data_source.type == "excel":
+                # Excel文件作为单个表处理
+                return ["Sheet1"]
+            elif data_source.type == "api":
+                # API数据源作为单个表处理
+                return ["API Data"]
+            
+            return []
+        except Exception as e:
+            print(f"获取表列表失败: {e}")
+            return []
+
+    async def get_fields(self, source_id: int, table_name: str) -> List[str]:
+        """获取表的字段列表"""
+        try:
+            # 获取数据源信息
+            data_source = await self.get_by_id(source_id)
+            
+            # 根据数据源类型返回不同的字段列表
+            if data_source.type == "database":
+                if data_source.db_type == "mysql":
+                    conn = mysql.connector.connect(
+                        host=data_source.host,
+                        port=data_source.port,
+                        user=data_source.username,
+                        password=data_source.password,
+                        database=data_source.database
+                    )
+                    cursor = conn.cursor()
+                    cursor.execute(f"DESCRIBE {table_name}")
+                    fields = [field[0] for field in cursor.fetchall()]
+                    cursor.close()
+                    conn.close()
+                    return fields
+                elif data_source.db_type == "postgresql":
+                    conn = psycopg2.connect(
+                        host=data_source.host,
+                        port=data_source.port,
+                        database=data_source.database,
+                        user=data_source.username,
+                        password=data_source.password
+                    )
+                    cursor = conn.cursor()
+                    cursor.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table_name}'")
+                    fields = [field[0] for field in cursor.fetchall()]
+                    cursor.close()
+                    conn.close()
+                    return fields
+                elif data_source.db_type == "oracle":
+                    conn = oracledb.connect(
+                        user=data_source.username,
+                        password=data_source.password,
+                        dsn=f"{data_source.host}:{data_source.port}/{data_source.database}"
+                    )
+                    cursor = conn.cursor()
+                    cursor.execute(f"SELECT column_name FROM user_tab_columns WHERE table_name = '{table_name.upper()}'")
+                    fields = [field[0] for field in cursor.fetchall()]
+                    cursor.close()
+                    conn.close()
+                    return fields
+            elif data_source.type == "excel":
+                # 读取Excel文件的列名
+                df = pd.read_excel(data_source.file_path, nrows=0)
+                return list(df.columns)
+            elif data_source.type == "api":
+                # 模拟API字段
+                return ["field1", "field2", "field3"]
+            
+            return []
+        except Exception as e:
+            print(f"获取字段列表失败: {e}")
+            return []
