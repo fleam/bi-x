@@ -122,16 +122,61 @@ const rules = reactive<FormRules>({
 
 const spreadsheetData = computed(() => {
   if (!result.value.success || !result.value.data.cells) return []
-  // 模拟表格数据
-  return [
-    { '字段名': '示例字段1', '值': '示例值1' },
-    { '字段名': '示例字段2', '值': '示例值2' },
-    { '字段名': '示例字段3', '值': '示例值3' }
-  ]
+  
+  const cells = result.value.data.cells
+  const data = []
+  
+  // 提取表头
+  const headers = []
+  for (const [key, value] of Object.entries(cells)) {
+    if (key.endsWith('1')) { // 第一行是表头
+      headers.push({ key, value })
+    }
+  }
+  
+  // 按列排序表头
+  headers.sort((a, b) => a.key.localeCompare(b.key))
+  
+  // 提取数据行
+  const rows = new Map()
+  for (const [key, value] of Object.entries(cells)) {
+    if (!key.endsWith('1')) { // 非表头行
+      const rowNum = parseInt(key.replace(/[^0-9]/g, ''))
+      if (!rows.has(rowNum)) {
+        rows.set(rowNum, {})
+      }
+      const colName = headers.find(h => h.key.charAt(0) === key.charAt(0))?.value || key.charAt(0)
+      rows.get(rowNum)[colName] = value
+    }
+  }
+  
+  // 按行号排序并转换为数组
+  Array.from(rows.entries())
+    .sort((a, b) => a[0] - b[0])
+    .forEach(([_, rowData]) => {
+      data.push(rowData)
+    })
+  
+  return data
 })
 
 const spreadsheetColumns = computed(() => {
-  return ['字段名', '值']
+  if (!result.value.success || !result.value.data.cells) return ['字段名', '值']
+  
+  const cells = result.value.data.cells
+  const headers = []
+  
+  // 提取表头
+  for (const [key, value] of Object.entries(cells)) {
+    if (key.endsWith('1')) { // 第一行是表头
+      headers.push({ key, value })
+    }
+  }
+  
+  // 按列排序并返回表头值
+  return headers
+    .sort((a, b) => a.key.localeCompare(b.key))
+    .map(h => h.value)
 })
 
 onMounted(async () => {
@@ -205,8 +250,37 @@ const handleReset = () => {
 }
 
 const exportExcel = () => {
-  // 导出Excel的逻辑
-  ElMessage.success('导出Excel功能开发中')
+  if (!result.value.success || !result.value.data.workbook_base64) {
+    ElMessage.error('没有可导出的Excel文件')
+    return
+  }
+  
+  try {
+    // 从base64字符串创建Blob对象
+    const base64Data = result.value.data.workbook_base64
+    const binaryString = window.atob(base64Data)
+    const binaryLen = binaryString.length
+    const bytes = new Uint8Array(binaryLen)
+    for (let i = 0; i < binaryLen; i++) {
+      bytes[i] = binaryString.charCodeAt(i)
+    }
+    const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    
+    // 创建下载链接
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = result.value.data.file_name || `数据集_${form.data_set_id}_导出.xlsx`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    
+    ElMessage.success('Excel文件导出成功')
+  } catch (error) {
+    console.error('导出Excel失败:', error)
+    ElMessage.error('导出Excel失败，请稍后重试')
+  }
 }
 
 const exportPDF = () => {

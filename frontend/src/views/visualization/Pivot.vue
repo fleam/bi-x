@@ -190,17 +190,95 @@ const rules = reactive<FormRules>({
 
 const availableDimensions = computed(() => {
   if (!selectedModel.value) return []
-  return selectedModel.value.dimensions || []
+  const dimensions = selectedModel.value.dimensions || []
+  // 确保返回的是包含name属性的对象数组
+  return dimensions.map(item => {
+    if (typeof item === 'string') {
+      return { name: item }
+    } else if (typeof item === 'object' && item !== null) {
+      // 如果是对象但没有name属性，尝试使用其他属性作为name
+      if (!item.name) {
+        // 优先使用field属性，然后是其他可能的属性
+        if (item.field) {
+          return { ...item, name: item.field }
+        } else if (item.field_name) {
+          return { ...item, name: item.field_name }
+        } else {
+          // 如果没有合适的属性，使用对象的字符串表示
+          return { ...item, name: String(item) }
+        }
+      }
+    }
+    return item
+  })
 })
 
 const availableMeasures = computed(() => {
   if (!selectedModel.value) return []
-  return selectedModel.value.measures || []
+  const measures = selectedModel.value.measures || []
+  // 确保返回的是包含name属性的对象数组
+  return measures.map(item => {
+    if (typeof item === 'string') {
+      return { name: item }
+    } else if (typeof item === 'object' && item !== null) {
+      // 如果是对象但没有name属性，尝试使用其他属性作为name
+      if (!item.name) {
+        // 优先使用field属性，然后是其他可能的属性
+        if (item.field) {
+          return { ...item, name: item.field }
+        } else if (item.field_name) {
+          return { ...item, name: item.field_name }
+        } else {
+          // 如果没有合适的属性，使用对象的字符串表示
+          return { ...item, name: String(item) }
+        }
+      }
+    }
+    return item
+  })
 })
 
 const allFields = computed(() => {
   if (!selectedModel.value) return []
-  return [...(selectedModel.value.dimensions || []), ...(selectedModel.value.measures || [])]
+  const dimensions = (selectedModel.value.dimensions || []).map(item => {
+    if (typeof item === 'string') {
+      return { name: item }
+    } else if (typeof item === 'object' && item !== null) {
+      // 如果是对象但没有name属性，尝试使用其他属性作为name
+      if (!item.name) {
+        // 优先使用field属性，然后是其他可能的属性
+        if (item.field) {
+          return { ...item, name: item.field }
+        } else if (item.field_name) {
+          return { ...item, name: item.field_name }
+        } else {
+          // 如果没有合适的属性，使用对象的字符串表示
+          return { ...item, name: String(item) }
+        }
+      }
+    }
+    return item
+  })
+  const measures = (selectedModel.value.measures || []).map(item => {
+    if (typeof item === 'string') {
+      return { name: item }
+    } else if (typeof item === 'object' && item !== null) {
+      // 如果是对象但没有name属性，尝试使用其他属性作为name
+      if (!item.name) {
+        // 优先使用field属性，然后是其他可能的属性
+        if (item.field) {
+          return { ...item, name: item.field }
+        } else if (item.field_name) {
+          return { ...item, name: item.field_name }
+        } else {
+          // 如果没有合适的属性，使用对象的字符串表示
+          return { ...item, name: String(item) }
+        }
+      }
+    }
+    return item
+  })
+  return [...dimensions, ...measures]
 })
 
 onMounted(async () => {
@@ -214,7 +292,20 @@ const navigateTo = (path: string) => {
 const fetchDataModels = async () => {
   try {
     const response = await axios.get('/api/v1/data-models')
-    dataModels.value = response.data
+    // 确保数据模型对象都有name属性
+    dataModels.value = (response.data || []).map(model => {
+      if (typeof model === 'object' && model !== null && !model.name) {
+        // 如果没有name属性，尝试使用其他属性
+        if (model.title) {
+          return { ...model, name: model.title }
+        } else if (model.label) {
+          return { ...model, name: model.label }
+        } else {
+          return { ...model, name: `模型 ${model.id}` }
+        }
+      }
+      return model
+    })
   } catch (error) {
     ElMessage.error('获取数据模型列表失败')
     console.error('Failed to fetch data models:', error)
@@ -225,7 +316,46 @@ const handleModelChange = async () => {
   try {
     const model = dataModels.value.find(m => m.id === form.data_model_id)
     if (model) {
-      selectedModel.value = model
+      // 确保模型对象及其维度和度量都有正确的格式
+      const processedModel = {
+        ...model,
+        // 处理维度
+        dimensions: (model.dimensions || []).map(dimension => {
+          if (typeof dimension === 'string') {
+            return { name: dimension }
+          } else if (typeof dimension === 'object' && dimension !== null) {
+            if (!dimension.name) {
+              if (dimension.field) {
+                return { ...dimension, name: dimension.field }
+              } else if (dimension.field_name) {
+                return { ...dimension, name: dimension.field_name }
+              } else {
+                return { ...dimension, name: String(dimension) }
+              }
+            }
+          }
+          return dimension
+        }),
+        // 处理度量
+        measures: (model.measures || []).map(measure => {
+          if (typeof measure === 'string') {
+            return { name: measure }
+          } else if (typeof measure === 'object' && measure !== null) {
+            if (!measure.name) {
+              if (measure.field) {
+                return { ...measure, name: measure.field }
+              } else if (measure.field_name) {
+                return { ...measure, name: measure.field_name }
+              } else {
+                return { ...measure, name: String(measure) }
+              }
+            }
+          }
+          return measure
+        })
+      }
+      
+      selectedModel.value = processedModel
       // 重置表单
       form.dimensions = []
       form.measures = []
