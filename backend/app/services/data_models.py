@@ -88,10 +88,11 @@ class DataModelService:
     async def create(self, data_model: DataModelCreate) -> DataModel:
         db = SessionLocal()
         try:
-            # 验证数据集是否存在
-            db_data_set = db.query(DataSet).filter(DataSet.id == data_model.data_set_id).first()
-            if not db_data_set:
-                raise Exception(f"数据集不存在: {data_model.data_set_id}")
+            # 验证所有数据集是否存在
+            for data_set_config in data_model.data_sets:
+                db_data_set = db.query(DataSet).filter(DataSet.id == data_set_config.data_set_id).first()
+                if not db_data_set:
+                    raise Exception(f"数据集不存在: {data_set_config.data_set_id}")
 
             # 创建数据模型
             db_data_model = DataModel(**data_model.model_dump())
@@ -127,11 +128,12 @@ class DataModelService:
             if not db_data_model:
                 raise Exception(f"数据模型不存在: {data_model_id}")
 
-            # 验证数据集是否存在
-            if data_model_update.data_set_id:
-                db_data_set = db.query(DataSet).filter(DataSet.id == data_model_update.data_set_id).first()
-                if not db_data_set:
-                    raise Exception(f"数据集不存在: {data_model_update.data_set_id}")
+            # 验证所有数据集是否存在（如果更新了数据集列表）
+            if data_model_update.data_sets:
+                for data_set_config in data_model_update.data_sets:
+                    db_data_set = db.query(DataSet).filter(DataSet.id == data_set_config.data_set_id).first()
+                    if not db_data_set:
+                        raise Exception(f"数据集不存在: {data_set_config.data_set_id}")
 
             # 更新数据模型
             update_data = data_model_update.model_dump(exclude_unset=True)

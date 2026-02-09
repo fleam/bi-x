@@ -65,13 +65,29 @@ class HierarchyConfig(BaseModel):
     name: str
     levels: List[str]
 
+class DataSetConfig(BaseModel):
+    id: Optional[int] = None
+    data_set_id: int
+    role: Optional[str] = "dimension"  # fact, dimension
+    alias: Optional[str] = None
+
+class RelationshipConfig(BaseModel):
+    source_data_set: int
+    source_field: str
+    target_data_set: int
+    target_field: str
+    join_type: str = "inner"  # inner, left, right
+
 class DataModelBase(BaseModel):
     name: str = Field(..., description="数据模型名称")
     description: Optional[str] = Field(None, description="数据模型描述")
-    data_set_id: int = Field(..., description="数据集ID")
+    model_type: str = Field("star", description="模型类型: star, snowflake")
+    data_sets: List[DataSetConfig] = Field(..., description="数据集列表")
+    relationships: List[RelationshipConfig] = Field(..., description="数据集关系列表")
     dimensions: List[DimensionConfig] = Field(..., description="维度列表")
     measures: List[MeasureConfig] = Field(..., description="度量列表")
     hierarchies: Optional[List[HierarchyConfig]] = Field(None, description="层次结构列表")
+    grain: Optional[str] = Field(None, description="数据粒度")
 
 class DataModelCreate(DataModelBase):
     pass
@@ -79,10 +95,13 @@ class DataModelCreate(DataModelBase):
 class DataModelUpdate(BaseModel):
     name: Optional[str] = Field(None, description="数据模型名称")
     description: Optional[str] = Field(None, description="数据模型描述")
-    data_set_id: Optional[int] = Field(None, description="数据集ID")
+    model_type: Optional[str] = Field(None, description="模型类型: star, snowflake")
+    data_sets: Optional[List[DataSetConfig]] = Field(None, description="数据集列表")
+    relationships: Optional[List[RelationshipConfig]] = Field(None, description="数据集关系列表")
     dimensions: Optional[List[DimensionConfig]] = Field(None, description="维度列表")
     measures: Optional[List[MeasureConfig]] = Field(None, description="度量列表")
     hierarchies: Optional[List[HierarchyConfig]] = Field(None, description="层次结构列表")
+    grain: Optional[str] = Field(None, description="数据粒度")
     is_active: Optional[bool] = Field(None, description="是否启用")
 
 class DataModelResponse(DataModelBase):

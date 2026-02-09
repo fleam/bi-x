@@ -13,12 +13,16 @@ class PivotAnalysisResponse(BaseModel):
     success: bool
     data: List[Dict[str, Any]]
     columns: List[str]
+    sql: Optional[str] = Field(None, description="生成的SQL查询语句")
+    model_sql: Optional[str] = Field(None, description="通过模型解析的SQL查询语句")
     message: Optional[str] = None
 
 class AdhocQueryRequest(BaseModel):
     data_set_id: int = Field(..., description="数据集ID")
     fields: List[str] = Field(..., description="查询字段列表")
     filters: Optional[List[Dict[str, Any]]] = Field(None, description="筛选条件列表")
+    sort_by: Optional[str] = Field(None, description="排序字段")
+    sort_order: Optional[str] = Field("asc", description="排序顺序: asc, desc")
     limit: Optional[int] = Field(1000, description="返回数据行数限制")
     offset: Optional[int] = Field(0, description="分页偏移量")
 
@@ -32,6 +36,8 @@ class SpreadsheetRequest(BaseModel):
     data_set_id: int = Field(..., description="数据集ID")
     template_id: Optional[int] = Field(None, description="模板ID")
     parameters: Optional[Dict[str, Any]] = Field(None, description="参数列表")
+    page: int = Field(1, description="页码")
+    page_size: int = Field(10, description="每页大小")
 
 class SpreadsheetResponse(BaseModel):
     success: bool

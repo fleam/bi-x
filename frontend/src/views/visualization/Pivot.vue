@@ -110,20 +110,40 @@
         </div>
       </template>
       <div class="card-content">
-        <el-table :data="result.data" style="width: 100%" class="page-table">
-          <el-table-column 
-            v-for="column in result.columns" 
-            :key="column" 
-            :prop="column" 
-            :label="column" 
-          />
-        </el-table>
-        <div class="result-actions">
-          <el-button type="primary" @click="exportResult">
-            导出结果
-          </el-button>
+          <el-alert
+            v-if="result.sql"
+            title="生成的SQL查询（简化版）"
+            type="info"
+            :closable="false"
+            show-icon
+            class="sql-alert"
+          >
+            <pre class="sql-code">{{ result.sql }}</pre>
+          </el-alert>
+          <el-alert
+            v-if="result.model_sql"
+            title="通过模型解析的SQL查询（原生版）"
+            type="success"
+            :closable="false"
+            show-icon
+            class="sql-alert"
+          >
+            <pre class="sql-code">{{ result.model_sql }}</pre>
+          </el-alert>
+          <el-table :data="result.data" style="width: 100%" class="page-table">
+            <el-table-column 
+              v-for="column in result.columns" 
+              :key="column" 
+              :prop="column" 
+              :label="column" 
+            />
+          </el-table>
+          <div class="result-actions">
+            <el-button type="primary" @click="exportResult">
+              导出结果
+            </el-button>
+          </div>
         </div>
-      </div>
     </el-card>
   </div>
 </template>
@@ -153,6 +173,8 @@ interface ResultData {
   success: boolean
   data: any[]
   columns: string[]
+  sql: string
+  model_sql: string
   message: string
 }
 
@@ -164,6 +186,8 @@ const result = ref<ResultData>({
   success: false,
   data: [],
   columns: [],
+  sql: '',
+  model_sql: '',
   message: ''
 })
 
@@ -367,6 +391,8 @@ const handleModelChange = async () => {
         success: false,
         data: [],
         columns: [],
+        sql: '',
+        model_sql: '',
         message: ''
       }
     }
@@ -426,6 +452,8 @@ const handleReset = () => {
     success: false,
     data: [],
     columns: [],
+    sql: '',
+    model_sql: '',
     message: ''
   }
 }
@@ -442,6 +470,23 @@ const exportResult = () => {
   height: 100%;
 }
 
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #333;
+}
+
+.page-card {
+  margin-bottom: 20px;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -452,17 +497,62 @@ const exportResult = () => {
   padding: 16px 0;
 }
 
+.button-group {
+  display: flex;
+  gap: 10px;
+}
+
 .filter-item {
   display: flex;
   align-items: center;
   margin-top: 10px;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
+  padding: 12px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+}
+
+.filter-item .el-select {
+  flex: 1;
+  min-width: 150px;
+  max-width: 200px;
+}
+
+.filter-item .el-input {
+  flex: 1;
+  min-width: 150px;
+  max-width: 200px;
+}
+
+.filter-item .el-button {
+  flex-shrink: 0;
+  min-width: 80px;
 }
 
 .result-actions {
   margin-top: 20px;
   text-align: right;
+}
+
+.sql-alert {
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.sql-code {
+  margin: 0;
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  color: #333;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .sort-container {
@@ -493,7 +583,17 @@ const exportResult = () => {
   
   .filter-item {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px;
+  }
+  
+  .filter-item .el-select,
+  .filter-item .el-input,
+  .filter-item .el-button {
+    min-width: 100%;
+    max-width: 100%;
+    width: 100%;
   }
   
   .sort-container {

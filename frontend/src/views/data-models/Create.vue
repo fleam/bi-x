@@ -20,25 +20,192 @@
             <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
               <!-- 基本信息 -->
               <el-form-item label="模型名称" prop="name">
-                <el-input v-model="form.name" placeholder="请输入模型名称" />
+                <el-input v-model="name" placeholder="请输入模型名称" />
               </el-form-item>
               <el-form-item label="描述" prop="description">
-                <el-input v-model="form.description" type="textarea" placeholder="请输入模型描述" />
+                <el-input v-model="description" type="textarea" placeholder="请输入模型描述" />
               </el-form-item>
-              <el-form-item label="数据集" prop="data_set_id">
-                <el-select v-model="form.data_set_id" placeholder="请选择数据集" @change="handleDataSetChange">
-                  <el-option 
-                    v-for="dataSet in dataSets" 
-                    :key="dataSet.id" 
-                    :label="dataSet.name" 
-                    :value="dataSet.id" 
-                  />
+              <el-form-item label="模型类型" prop="model_type">
+                <el-select v-model="modelType" placeholder="请选择模型类型">
+                  <el-option label="星型模型" value="star" />
+                  <el-option label="雪花模型" value="snowflake" />
                 </el-select>
               </el-form-item>
               
+              <!-- 数据集配置 -->
+              <el-form-item label="数据集配置" prop="data_sets">
+                <el-alert
+                  title="说明"
+                  type="info"
+                  :closable="false"
+                  show-icon
+                >
+                  <p>数据集配置用于添加数据模型中需要使用的数据集，支持多个数据集。</p>
+                  <p>角色说明：</p>
+                  <ul>
+                    <li>事实表：存储业务事实数据，如销售记录、订单信息等，通常包含度量值。</li>
+                    <li>维度表：存储描述性数据，如产品信息、客户信息等，通常用于分析的分类和过滤。</li>
+                  </ul>
+                </el-alert>
+                <br />
+                <el-table :data="dataSetsRef" style="width: 100%">
+                  <el-table-column prop="data_set_id" label="数据集">
+                    <template #default="scope">
+                      <el-select v-model="scope.row.data_set_id" @change="fetchDataSetFields(scope.row.data_set_id)">
+                        <el-option 
+                          v-for="dataSet in dataSets" 
+                          :key="dataSet.id" 
+                          :label="dataSet.name" 
+                          :value="dataSet.id" 
+                        />
+                      </el-select>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="role" label="角色">
+                    <template #default="scope">
+                      <el-select v-model="scope.row.role">
+                        <el-option label="事实表" value="fact" />
+                        <el-option label="维度表" value="dimension" />
+                      </el-select>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="alias" label="别名">
+                    <template #default="scope">
+                      <el-input v-model="scope.row.alias" placeholder="可选" />
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="操作">
+                    <template #default="scope">
+                      <el-button type="danger" size="small" @click="removeDataSet(scope.$index)">
+                        删除
+                      </el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <el-button type="primary" size="small" @click="addDataSet">
+                  添加数据集
+                </el-button>
+              </el-form-item>
+              
+              <!-- 关系配置 -->
+              <el-form-item label="关系配置" prop="relationships">
+                <el-alert
+                  title="说明"
+                  type="info"
+                  :closable="false"
+                  show-icon
+                >
+                  <p>关系配置用于定义数据集之间的关联关系，如主键外键映射。</p>
+                  <p>配置说明：</p>
+                  <ul>
+                    <li>源数据集：关联关系的起始数据集</li>
+                    <li>源字段：源数据集中的关联字段（通常是主键）</li>
+                    <li>目标数据集：关联关系的目标数据集</li>
+                    <li>目标字段：目标数据集中的关联字段（通常是外键）</li>
+                    <li>连接类型：内连接（只保留两边都有匹配的数据）、左连接（保留源数据集的所有数据）、右连接（保留目标数据集的所有数据）</li>
+                  </ul>
+                </el-alert>
+                <br />
+                <el-table :data="relationshipsRef" style="width: 100%">
+                  <el-table-column prop="source_data_set" label="源数据集">
+                    <template #default="scope">
+                      <el-select v-model="scope.row.source_data_set" @change="(value) => {
+                        if (value) {
+                          fetchDataSetFields(value);
+                        }
+                      }">
+                        <el-option 
+                          v-for="dataSet in dataSetsRef" 
+                          :key="dataSet.data_set_id" 
+                          :label="dataSets.find(ds => ds.id === dataSet.data_set_id)?.name || dataSet.data_set_id" 
+                          :value="dataSet.data_set_id" 
+                        />
+                      </el-select>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="source_field" label="源字段">
+                    <template #default="scope">
+                      <el-select v-model="scope.row.source_field">
+                        <el-option 
+                          v-for="field in getDataSetFields(scope.row.source_data_set)" 
+                          :key="field.name" 
+                          :label="field.name" 
+                          :value="field.name" 
+                        />
+                      </el-select>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="target_data_set" label="目标数据集">
+                    <template #default="scope">
+                      <el-select v-model="scope.row.target_data_set" @change="(value) => {
+                        if (value) {
+                          fetchDataSetFields(value);
+                        }
+                      }">
+                        <el-option 
+                          v-for="dataSet in dataSetsRef" 
+                          :key="dataSet.data_set_id" 
+                          :label="dataSets.find(ds => ds.id === dataSet.data_set_id)?.name || dataSet.data_set_id" 
+                          :value="dataSet.data_set_id" 
+                        />
+                      </el-select>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="target_field" label="目标字段">
+                    <template #default="scope">
+                      <el-select v-model="scope.row.target_field">
+                        <el-option 
+                          v-for="field in getDataSetFields(scope.row.target_data_set)" 
+                          :key="field.name" 
+                          :label="field.name" 
+                          :value="field.name" 
+                        />
+                      </el-select>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="join_type" label="连接类型">
+                    <template #default="scope">
+                      <el-select v-model="scope.row.join_type">
+                        <el-option label="内连接" value="inner" />
+                        <el-option label="左连接" value="left" />
+                        <el-option label="右连接" value="right" />
+                      </el-select>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="操作">
+                    <template #default="scope">
+                      <el-button type="danger" size="small" @click="removeRelationship(scope.$index)">
+                        删除
+                      </el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <el-button type="primary" size="small" @click="addRelationship" :disabled="dataSetsRef.length < 2">
+                  添加关系
+                </el-button>
+              </el-form-item>
+              
+
+              
               <!-- 维度配置 -->
               <el-form-item label="维度配置" prop="dimensions">
-                <el-table :data="form.dimensions" style="width: 100%">
+                <el-alert
+                  title="说明"
+                  type="info"
+                  :closable="false"
+                  show-icon
+                >
+                  <p>维度是用于分析数据的分类属性，如产品、地区、时间等，通常用于分组和过滤。</p>
+                  <p>配置说明：</p>
+                  <ul>
+                    <li>维度名称：维度的显示名称，如 "产品类别"、"销售地区" 等</li>
+                    <li>关联字段：维度对应的数据源字段，格式为 "数据集ID.字段名"</li>
+                    <li>类型：维度字段的数据类型，如字符串、数值、日期等</li>
+                    <li>层次结构：维度所属的层次结构，如时间层次结构（年-季-月-日）</li>
+                  </ul>
+                </el-alert>
+                <br />
+                <el-table :data="dimensionsRef" style="width: 100%">
                   <el-table-column prop="name" label="维度名称">
                     <template #default="scope">
                       <el-input v-model="scope.row.name" />
@@ -47,12 +214,16 @@
                   <el-table-column prop="field" label="关联字段">
                     <template #default="scope">
                       <el-select v-model="scope.row.field">
-                        <el-option 
-                          v-for="field in dataSetFields" 
-                          :key="field.name" 
-                          :label="field.name" 
-                          :value="field.name" 
-                        />
+                        <template v-for="item in filteredDataSetsRef" :key="`ds-${item.data_set_id}`">
+                          <el-option-group :label="dataSets.find(ds => ds.id === item.data_set_id)?.name || '未知数据集'">
+                            <el-option 
+                              v-for="field in getDataSetFields(item.data_set_id)" 
+                              :key="`${item.data_set_id}-${field.name}`" 
+                              :label="field.name" 
+                              :value="`${item.data_set_id}.${field.name}`" 
+                            />
+                          </el-option-group>
+                        </template>
                       </el-select>
                     </template>
                   </el-table-column>
@@ -67,9 +238,10 @@
                   </el-table-column>
                   <el-table-column prop="hierarchy" label="层次结构">
                     <template #default="scope">
-                      <el-select v-model="scope.row.hierarchy">
+                      <el-select v-model="scope.row.hierarchy" placeholder="选择层次结构">
+                        <el-option label="无" value="" />
                         <el-option 
-                          v-for="hierarchy in form.hierarchies" 
+                          v-for="hierarchy in hierarchiesRef" 
                           :key="hierarchy.name" 
                           :label="hierarchy.name" 
                           :value="hierarchy.name" 
@@ -92,7 +264,23 @@
               
               <!-- 度量配置 -->
               <el-form-item label="度量配置" prop="measures">
-                <el-table :data="form.measures" style="width: 100%">
+                <el-alert
+                  title="说明"
+                  type="info"
+                  :closable="false"
+                  show-icon
+                >
+                  <p>度量是用于分析数据的数值指标，如销售额、订单数量、利润率等，通常需要进行聚合计算。</p>
+                  <p>配置说明：</p>
+                  <ul>
+                    <li>度量名称：度量的显示名称，如 "销售额"、"订单数量" 等</li>
+                    <li>关联字段：度量对应的数据源字段，格式为 "数据集ID.字段名"</li>
+                    <li>聚合方式：度量的计算方法，如求和、平均值、最大值、最小值、计数等</li>
+                    <li>格式化：度量值的显示格式，如货币格式、百分比格式等</li>
+                  </ul>
+                </el-alert>
+                <br />
+                <el-table :data="measuresRef" style="width: 100%">
                   <el-table-column prop="name" label="度量名称">
                     <template #default="scope">
                       <el-input v-model="scope.row.name" />
@@ -101,12 +289,16 @@
                   <el-table-column prop="field" label="关联字段">
                     <template #default="scope">
                       <el-select v-model="scope.row.field">
-                        <el-option 
-                          v-for="field in dataSetFields" 
-                          :key="field.name" 
-                          :label="field.name" 
-                          :value="field.name" 
-                        />
+                        <template v-for="item in filteredDataSetsRef" :key="`ds-${item.data_set_id}`">
+                          <el-option-group :label="dataSets.find(ds => ds.id === item.data_set_id)?.name || '未知数据集'">
+                            <el-option 
+                              v-for="field in getDataSetFields(item.data_set_id)" 
+                              :key="`${item.data_set_id}-${field.name}`" 
+                              :label="field.name" 
+                              :value="`${item.data_set_id}.${field.name}`" 
+                            />
+                          </el-option-group>
+                        </template>
                       </el-select>
                     </template>
                   </el-table-column>
@@ -141,7 +333,22 @@
               
               <!-- 层次结构配置 -->
               <el-form-item label="层次结构配置" prop="hierarchies">
-                <el-table :data="form.hierarchies" style="width: 100%">
+                <el-alert
+                  title="说明"
+                  type="info"
+                  :closable="false"
+                  show-icon
+                >
+                  <p>层次结构是维度的层级关系，如时间层次结构（年-季-月-日）、地理层次结构（国家-省份-城市）等。</p>
+                  <p>配置说明：</p>
+                  <ul>
+                    <li>层次名称：层次结构的显示名称，如 "时间层次"、"地理层次" 等</li>
+                    <li>层级：层次结构包含的维度，按从粗到细的顺序排列</li>
+                  </ul>
+                  <p>用途：层次结构用于钻取分析，如从年钻取到季，再钻取到月，再钻取到日。</p>
+                </el-alert>
+                <br />
+                <el-table :data="hierarchiesRef" style="width: 100%">
                   <el-table-column prop="name" label="层次名称">
                     <template #default="scope">
                       <el-input v-model="scope.row.name" />
@@ -151,7 +358,7 @@
                     <template #default="scope">
                       <el-select v-model="scope.row.levels" multiple>
                         <el-option 
-                          v-for="dimension in form.dimensions" 
+                          v-for="dimension in dimensionsRef" 
                           :key="dimension.name" 
                           :label="dimension.name" 
                           :value="dimension.name" 
@@ -213,10 +420,27 @@ interface HierarchyConfig {
   levels: string[]
 }
 
+interface DataSetConfig {
+  id: number
+  data_set_id: number
+  role: string
+  alias: string | null
+}
+
+interface RelationshipConfig {
+  source_data_set: number
+  source_field: string
+  target_data_set: number
+  target_field: string
+  join_type: string
+}
+
 interface FormData {
   name: string
   description: string
-  data_set_id: number
+  model_type: string
+  data_sets: DataSetConfig[]
+  relationships: RelationshipConfig[]
   dimensions: DimensionConfig[]
   measures: MeasureConfig[]
   hierarchies: HierarchyConfig[]
@@ -225,23 +449,46 @@ interface FormData {
 const router = useRouter()
 const formRef = ref<FormInstance>()
 const dataSets = ref<any[]>([])
-const dataSetFields = ref<any[]>([])
+const dataSetFieldsMap = ref<Record<number, any[]>>({})
 
-const form = reactive<FormData>({
-  name: '',
-  description: '',
-  data_set_id: 0,
-  dimensions: [],
-  measures: [],
-  hierarchies: []
+// 使用 ref 创建响应式数组
+const dataSetsRef = ref<DataSetConfig[]>([])
+const relationshipsRef = ref<RelationshipConfig[]>([])
+const dimensionsRef = ref<DimensionConfig[]>([])
+const measuresRef = ref<MeasureConfig[]>([])
+const hierarchiesRef = ref<HierarchyConfig[]>([])
+
+// 表单数据
+const name = ref('')
+const description = ref('')
+const modelType = ref('star')
+
+// 计算属性，用于表单验证
+const form = computed(() => ({
+  name: name.value,
+  description: description.value,
+  model_type: modelType.value,
+  data_sets: dataSetsRef.value,
+  relationships: relationshipsRef.value,
+  dimensions: dimensionsRef.value,
+  measures: measuresRef.value,
+  hierarchies: hierarchiesRef.value
+}))
+
+// 计算属性，过滤掉无效数据集
+const filteredDataSetsRef = computed(() => {
+  return dataSetsRef.value.filter(item => item && item.data_set_id)
 })
 
 const rules = reactive<FormRules>({
   name: [
     { required: true, message: '请输入模型名称', trigger: 'blur' }
   ],
-  data_set_id: [
-    { required: true, message: '请选择数据集', trigger: 'change' }
+  model_type: [
+    { required: true, message: '请选择模型类型', trigger: 'change' }
+  ],
+  data_sets: [
+    { required: true, message: '请至少添加一个数据集', trigger: 'change' }
   ],
   dimensions: [
     { required: true, message: '请至少添加一个维度', trigger: 'change' }
@@ -269,57 +516,96 @@ const fetchDataSets = async () => {
   }
 }
 
-const handleDataSetChange = async () => {
-  // 当选择数据集时，获取数据集的字段信息
-  if (form.data_set_id) {
-    try {
-      const response = await axios.get(`/api/v1/data-sets/${form.data_set_id}`)
-      dataSetFields.value = response.data.fields
-    } catch (error) {
-      ElMessage.error('获取数据集字段失败')
-      console.error('Failed to fetch data set fields:', error)
-      dataSetFields.value = []
-    }
-  } else {
-    dataSetFields.value = []
+const fetchDataSetFields = async (dataSetId: number) => {
+  try {
+    const response = await axios.get(`/api/v1/data-sets/${dataSetId}`)
+    dataSetFieldsMap.value[dataSetId] = response.data.fields || []
+  } catch (error) {
+    ElMessage.error('获取数据集字段失败')
+    console.error('Failed to fetch data set fields:', error)
+    dataSetFieldsMap.value[dataSetId] = []
   }
 }
 
+const addDataSet = () => {
+  const newId = dataSetsRef.value.length + 1
+  const newDataSet = {
+    id: newId,
+    data_set_id: 0,
+    role: 'dimension',
+    alias: null
+  }
+  dataSetsRef.value = [...dataSetsRef.value, newDataSet]
+}
+
+const removeDataSet = (index: number) => {
+  const removedDataSet = dataSetsRef.value[index]
+  dataSetsRef.value = dataSetsRef.value.filter((_, i) => i !== index)
+  
+  // 清理相关关系
+  relationshipsRef.value = relationshipsRef.value.filter(rel => 
+    rel.source_data_set !== removedDataSet.data_set_id && 
+    rel.target_data_set !== removedDataSet.data_set_id
+  )
+}
+
+const addRelationship = () => {
+  const newRelationship = {
+    source_data_set: 0,
+    source_field: '',
+    target_data_set: 0,
+    target_field: '',
+    join_type: 'inner'
+  }
+  relationshipsRef.value = [...relationshipsRef.value, newRelationship]
+}
+
+const removeRelationship = (index: number) => {
+  relationshipsRef.value = relationshipsRef.value.filter((_, i) => i !== index)
+}
+
+const getDataSetFields = (dataSetId: number) => {
+  return dataSetFieldsMap.value[dataSetId] || []
+}
+
 const addDimension = () => {
-  form.dimensions.push({
+  const newDimension = {
     name: '',
     field: '',
     type: 'string',
     hierarchy: null
-  })
+  }
+  dimensionsRef.value = [...dimensionsRef.value, newDimension]
 }
 
 const removeDimension = (index: number) => {
-  form.dimensions.splice(index, 1)
+  dimensionsRef.value = dimensionsRef.value.filter((_, i) => i !== index)
 }
 
 const addMeasure = () => {
-  form.measures.push({
+  const newMeasure = {
     name: '',
     field: '',
     aggregation: 'sum',
     format: null
-  })
+  }
+  measuresRef.value = [...measuresRef.value, newMeasure]
 }
 
 const removeMeasure = (index: number) => {
-  form.measures.splice(index, 1)
+  measuresRef.value = measuresRef.value.filter((_, i) => i !== index)
 }
 
 const addHierarchy = () => {
-  form.hierarchies.push({
+  const newHierarchy = {
     name: '',
     levels: []
-  })
+  }
+  hierarchiesRef.value = [...hierarchiesRef.value, newHierarchy]
 }
 
 const removeHierarchy = (index: number) => {
-  form.hierarchies.splice(index, 1)
+  hierarchiesRef.value = hierarchiesRef.value.filter((_, i) => i !== index)
 }
 
 const handleSubmit = async () => {
@@ -328,7 +614,12 @@ const handleSubmit = async () => {
 
     // 准备提交数据
     const submitData = {
-      ...form
+      ...form.value,
+      // 处理维度的层次结构，将空字符串转换为null
+      dimensions: form.value.dimensions.map(dim => ({
+        ...dim,
+        hierarchy: dim.hierarchy === '' ? null : dim.hierarchy
+      }))
     }
 
     await axios.post('/api/v1/data-models', submitData)
@@ -345,11 +636,23 @@ const handleSubmit = async () => {
 }
 
 const handleReset = () => {
+  // 重置表单引用
   formRef.value?.resetFields()
-  form.dimensions = []
-  form.measures = []
-  form.hierarchies = []
-  dataSetFields.value = []
+  
+  // 重置基本信息
+  name.value = ''
+  description.value = ''
+  modelType.value = 'star'
+  
+  // 重置数组类型的 ref 变量
+  dataSetsRef.value = []
+  relationshipsRef.value = []
+  dimensionsRef.value = []
+  measuresRef.value = []
+  hierarchiesRef.value = []
+  
+  // 重置字段映射
+  dataSetFieldsMap.value = {}
 }
 </script>
 

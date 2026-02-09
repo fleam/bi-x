@@ -1,82 +1,105 @@
 <template>
   <div class="visualization-spreadsheet">
-    <el-container>
-      <el-header>
-        <div class="header-content">
-          <h1>电子表格</h1>
-          <el-button @click="navigateTo('/visualization')">
-            返回
+    <div class="page-header">
+      <h1>电子表格</h1>
+      <el-button @click="navigateTo('/visualization')">
+        返回
+      </el-button>
+    </div>
+    
+    <el-card class="page-card">
+      <template #header>
+        <div class="card-header">
+          <span>电子表格配置</span>
+        </div>
+      </template>
+      <div class="card-content">
+        <el-form :model="form" :rules="rules" ref="formRef" label-width="120px" class="page-form">
+          <el-form-item label="数据集" prop="data_set_id">
+            <el-select v-model="form.data_set_id" placeholder="请选择数据集" @change="handleDataSetChange">
+              <el-option 
+                v-for="dataSet in dataSets" 
+                :key="dataSet.id" 
+                :label="dataSet.name" 
+                :value="dataSet.id" 
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="模板" prop="template_id">
+            <el-select v-model="form.template_id" placeholder="请选择模板">
+              <el-option label="默认模板" value="1" />
+              <el-option label="销售报表模板" value="2" />
+              <el-option label="财务报表模板" value="3" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="参数" prop="parameters">
+            <el-input v-model="form.parameters" type="textarea" placeholder="请输入参数（JSON格式）" />
+          </el-form-item>
+          <el-form-item>
+                <div class="button-group">
+                  <el-button type="primary" @click="handleSubmit" :loading="loading">
+                    生成报表
+                  </el-button>
+                  <el-button @click="handleReset">
+                    重置
+                  </el-button>
+                </div>
+              </el-form-item>
+        </el-form>
+      </div>
+    </el-card>
+
+    <el-card v-if="result.success" class="page-card">
+      <template #header>
+        <div class="card-header">
+          <span>报表结果</span>
+        </div>
+      </template>
+      <div class="card-content">
+        <div class="table-container">
+          <el-table 
+            :data="spreadsheetData" 
+            style="width: 100%" 
+            height="500"
+            border
+            stripe
+            class="page-table"
+            :default-sort="{ prop: '字段名', order: 'ascending' }"
+            v-loading="loading"
+            element-loading-text="加载中..."
+          >
+            <el-table-column 
+              v-for="column in spreadsheetColumns" 
+              :key="column" 
+              :prop="column" 
+              :label="column" 
+              :min-width="120"
+              :show-overflow-tooltip="true"
+            />
+          </el-table>
+        </div>
+        <div class="result-actions">
+          <el-button type="primary" @click="exportExcel">
+            导出Excel
+          </el-button>
+          <el-button type="success" @click="exportPDF">
+            导出PDF
           </el-button>
         </div>
-      </el-header>
-      <el-main>
-        <el-card>
-          <template #header>
-            <div class="card-header">
-              <span>电子表格配置</span>
-            </div>
-          </template>
-          <div class="card-content">
-            <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
-              <el-form-item label="数据集" prop="data_set_id">
-                <el-select v-model="form.data_set_id" placeholder="请选择数据集" @change="handleDataSetChange">
-                  <el-option 
-                    v-for="dataSet in dataSets" 
-                    :key="dataSet.id" 
-                    :label="dataSet.name" 
-                    :value="dataSet.id" 
-                  />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="模板" prop="template_id">
-                <el-select v-model="form.template_id" placeholder="请选择模板">
-                  <el-option label="默认模板" value="1" />
-                  <el-option label="销售报表模板" value="2" />
-                  <el-option label="财务报表模板" value="3" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="参数" prop="parameters">
-                <el-input v-model="form.parameters" type="textarea" placeholder="请输入参数（JSON格式）" />
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" @click="handleSubmit">
-                  生成报表
-                </el-button>
-                <el-button @click="handleReset">
-                  重置
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </div>
-        </el-card>
-
-        <el-card v-if="result.success">
-          <template #header>
-            <div class="card-header">
-              <span>报表结果</span>
-            </div>
-          </template>
-          <div class="card-content">
-            <el-table :data="spreadsheetData" style="width: 100%">
-              <el-table-column 
-                v-for="column in spreadsheetColumns" 
-                :key="column" 
-                :prop="column" 
-                :label="column" 
-              />
-            </el-table>
-            <div class="result-actions">
-              <el-button type="primary" @click="exportExcel">
-                导出Excel
-              </el-button>
-              <el-button type="success" @click="exportPDF">
-                导出PDF
-              </el-button>
-            </div>
-          </div>
-        </el-card>
-      </el-main>
-    </el-container>
+        
+        <div class="pagination-container" v-if="result.success && result.data.total > 0">
+          <el-pagination
+            v-model:current-page="form.page"
+            v-model:page-size="form.page_size"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="result.data.total"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
+      </div>
+    </el-card>
   </div>
 </template>
 
@@ -90,6 +113,8 @@ interface FormData {
   data_set_id: number
   template_id: number
   parameters: string
+  page: number
+  page_size: number
 }
 
 interface ResultData {
@@ -111,7 +136,9 @@ const result = ref<ResultData>({
 const form = reactive<FormData>({
   data_set_id: 0,
   template_id: 1,
-  parameters: '{}'
+  parameters: '{}',
+  page: 1,
+  page_size: 10
 })
 
 const rules = reactive<FormRules>({
@@ -126,27 +153,35 @@ const spreadsheetData = computed(() => {
   const cells = result.value.data.cells
   const data = []
   
-  // 提取表头
+  // 提取表头（按列字母顺序）
   const headers = []
-  for (const [key, value] of Object.entries(cells)) {
-    if (key.endsWith('1')) { // 第一行是表头
-      headers.push({ key, value })
+  const colLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
+  
+  for (const colLetter of colLetters) {
+    const cellKey = `${colLetter}1`
+    if (cells[cellKey] !== undefined) {
+      const value = cells[cellKey]
+      const stringValue = String(value)
+      const cleanValue = stringValue.includes('.') ? stringValue.split('.').pop() : stringValue
+      headers.push({ key: cellKey, value: cleanValue, colLetter })
     }
   }
   
-  // 按列排序表头
-  headers.sort((a, b) => a.key.localeCompare(b.key))
-  
-  // 提取数据行
+  // 提取数据行（排除表头和总计行）
   const rows = new Map()
   for (const [key, value] of Object.entries(cells)) {
-    if (!key.endsWith('1')) { // 非表头行
+    if (!key.endsWith('1') && value !== '总计') { // 非表头行且不是总计行
       const rowNum = parseInt(key.replace(/[^0-9]/g, ''))
       if (!rows.has(rowNum)) {
         rows.set(rowNum, {})
       }
-      const colName = headers.find(h => h.key.charAt(0) === key.charAt(0))?.value || key.charAt(0)
-      rows.get(rowNum)[colName] = value
+      // 提取列字母
+      const colLetter = key.replace(/[0-9]/g, '')
+      // 获取对应的列名
+      const header = headers.find(h => h.colLetter === colLetter)
+      if (header) {
+        rows.get(rowNum)[header.value] = value
+      }
     }
   }
   
@@ -157,6 +192,7 @@ const spreadsheetData = computed(() => {
       data.push(rowData)
     })
   
+  console.log('Spreadsheet data:', data)
   return data
 })
 
@@ -164,19 +200,23 @@ const spreadsheetColumns = computed(() => {
   if (!result.value.success || !result.value.data.cells) return ['字段名', '值']
   
   const cells = result.value.data.cells
+  
+  // 提取表头（按列字母顺序）
+  const colLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
   const headers = []
   
-  // 提取表头
-  for (const [key, value] of Object.entries(cells)) {
-    if (key.endsWith('1')) { // 第一行是表头
-      headers.push({ key, value })
+  for (const colLetter of colLetters) {
+    const cellKey = `${colLetter}1`
+    if (cells[cellKey] !== undefined) {
+      const value = cells[cellKey]
+      const stringValue = String(value)
+      const cleanValue = stringValue.includes('.') ? stringValue.split('.').pop() : stringValue
+      headers.push(cleanValue)
     }
   }
   
-  // 按列排序并返回表头值
+  console.log('Spreadsheet columns:', headers)
   return headers
-    .sort((a, b) => a.key.localeCompare(b.key))
-    .map(h => h.value)
 })
 
 onMounted(async () => {
@@ -191,11 +231,14 @@ const fetchDataSets = async () => {
   try {
     const response = await axios.get('/api/v1/data-sets')
     dataSets.value = response.data
+    console.log('Fetched data sets:', response.data)
   } catch (error) {
     ElMessage.error('获取数据集列表失败')
     console.error('Failed to fetch data sets:', error)
   }
 }
+
+const loading = ref(false)
 
 const handleDataSetChange = async () => {
   try {
@@ -208,6 +251,9 @@ const handleDataSetChange = async () => {
         data: {},
         message: ''
       }
+      console.log('Selected data set:', dataSet)
+      // 自动加载数据
+      await handleSubmit()
     }
   } catch (error) {
     ElMessage.error('加载数据集失败')
@@ -218,12 +264,17 @@ const handleDataSetChange = async () => {
 const handleSubmit = async () => {
   try {
     await formRef.value?.validate()
+    
+    // 显示加载状态
+    loading.value = true
 
     // 准备提交数据
     const submitData = {
       data_set_id: form.data_set_id,
       template_id: form.template_id,
-      parameters: JSON.parse(form.parameters)
+      parameters: JSON.parse(form.parameters),
+      page: form.page,
+      page_size: form.page_size
     }
 
     const response = await axios.post('/api/v1/visualization/spreadsheet', submitData)
@@ -236,12 +287,17 @@ const handleSubmit = async () => {
     } else {
       ElMessage.error('生成失败，请检查输入信息')
     }
+  } finally {
+    // 隐藏加载状态
+    loading.value = false
   }
 }
 
 const handleReset = () => {
   formRef.value?.resetFields()
   form.parameters = '{}'
+  form.page = 1
+  form.page_size = 10
   result.value = {
     success: false,
     data: {},
@@ -287,27 +343,45 @@ const exportPDF = () => {
   // 导出PDF的逻辑
   ElMessage.success('导出PDF功能开发中')
 }
+
+const handleSizeChange = (size: number) => {
+  form.page_size = size
+  form.page = 1
+  handleSubmit()
+}
+
+const handleCurrentChange = (current: number) => {
+  form.page = current
+  handleSubmit()
+}
 </script>
 
 <style scoped>
 .visualization-spreadsheet {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  padding: 0 20px;
+  box-sizing: border-box;
 }
 
-.header-content {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
-  height: 100%;
+  margin-bottom: 20px;
 }
 
-.header-content h1 {
+.page-header h1 {
   margin: 0;
   font-size: 24px;
   color: #333;
+}
+
+.page-card {
+  margin-bottom: 20px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .card-header {
@@ -320,19 +394,59 @@ const exportPDF = () => {
   padding: 16px 0;
 }
 
+.button-group {
+  display: flex;
+  gap: 10px;
+}
+
+.table-container {
+  max-height: 600px;
+  overflow: auto;
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 1200px;
+}
+
+.table-container ::v-deep .el-table {
+  width: 100%;
+  min-width: 800px;
+}
+
 .result-actions {
   margin-top: 20px;
   text-align: right;
 }
 
-@media (max-width: 768px) {
-  .header-content {
-    flex-direction: column;
-    padding: 10px;
-  }
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
 
-  .header-content h1 {
-    margin-bottom: 10px;
+@media (max-width: 768px) {
+  .visualization-spreadsheet {
+    padding: 0 10px;
+  }
+  
+  .page-form {
+    max-width: 100%;
+  }
+  
+  .el-form {
+    label-width: 100px;
+  }
+  
+  .button-group {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .button-group .el-button {
+    width: 100%;
+  }
+  
+  .table-container {
+    max-width: 100%;
   }
 }
 </style>
