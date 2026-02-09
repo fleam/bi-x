@@ -74,18 +74,20 @@
             </el-button>
           </el-form-item>
           <el-form-item label="排序" prop="sort_by">
-            <el-select v-model="form.sort_by" placeholder="选择排序字段">
-              <el-option 
-                v-for="field in allFields" 
-                :key="field.name" 
-                :label="field.name" 
-                :value="field.name" 
-              />
-            </el-select>
-            <el-select v-model="form.sort_order" placeholder="排序顺序" style="margin-left: 10px;">
-              <el-option label="升序" value="asc" />
-              <el-option label="降序" value="desc" />
-            </el-select>
+            <div class="sort-container">
+              <el-select v-model="form.sort_by" placeholder="选择排序字段" class="sort-field-select">
+                <el-option 
+                  v-for="field in allFields" 
+                  :key="field.name" 
+                  :label="field.name" 
+                  :value="field.name" 
+                />
+              </el-select>
+              <el-select v-model="form.sort_order" placeholder="排序顺序" class="sort-order-select">
+                <el-option label="升序" value="asc" />
+                <el-option label="降序" value="desc" />
+              </el-select>
+            </div>
           </el-form-item>
           <el-form-item>
             <div class="button-group">
@@ -333,6 +335,23 @@ const exportResult = () => {
   text-align: right;
 }
 
+.sort-container {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+}
+
+.sort-field-select {
+  flex: 1;
+  min-width: 200px;
+}
+
+.sort-order-select {
+  width: 120px;
+}
+
 @media (max-width: 768px) {
   .page-form {
     max-width: 100%;
@@ -345,6 +364,19 @@ const exportResult = () => {
   .filter-item {
     flex-direction: column;
     align-items: flex-start;
+  }
+  
+  .sort-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    max-width: 100%;
+  }
+  
+  .sort-field-select,
+  .sort-order-select {
+    width: 100%;
+    min-width: unset;
   }
 }
 </style>
