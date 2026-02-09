@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+pydantic-settings
+python-dotenv
+psycopg2-binary
+mysql-connector-python
+oracledb
+pandas
+openpyxl
+requests
+redis
+python-jose[cryptography]
+python-multipart
+email-validator
+passlib[bcrypt]
