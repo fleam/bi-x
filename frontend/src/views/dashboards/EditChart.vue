@@ -189,6 +189,7 @@ const form = reactive<FormData>({
 
 const selectedDimensions = ref<string[]>([])
 const selectedMeasures = ref<string[]>([])
+const result = ref({ data: [], columns: [] })
 
 const rules = reactive<FormRules>({
   name: [
@@ -314,12 +315,40 @@ const handlePreview = async () => {
       field: meas
     }))
 
+    // 构建提交数据（与新建图表页面的预览功能一致）
+    const submitData = {
+      data_model_id: form.data_model_id,
+      dimensions: selectedDimensions.value,
+      measures: selectedMeasures.value,
+      filters: form.filters
+    }
+
+    // 从后端获取真实数据（与新建图表页面调用相同的接口）
+    const response = await axios.post('/api/v1/visualization/pivot-analysis', submitData)
+    result.value = response.data
+
     previewVisible.value = true
     await nextTick()
     renderChart()
   } catch (error) {
-    ElMessage.error('请填写完整的表单信息')
     console.error('Validation error:', error)
+    
+    // 错误处理（与新建图表页面的错误处理一致）
+    let errorMessage = '请填写完整的表单信息'
+    if (error.response) {
+      const detail = error.response.data.detail
+      if (typeof detail === 'string') {
+        errorMessage = detail
+      } else if (typeof detail === 'object') {
+        errorMessage = JSON.stringify(detail)
+      } else {
+        errorMessage = String(detail)
+      }
+    } else if (error.message) {
+      errorMessage = error.message
+    }
+    
+    ElMessage.error(errorMessage)
   }
 }
 
@@ -332,14 +361,150 @@ const renderChart = () => {
 
   chartInstance = echarts.init(chartRef.value)
 
-  // 模拟图表数据
+  // 状态字段颜色映射
+  const statusColors = [
+    '#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de',
+    '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc', '#2ec7c9'
+  ]
+
+  // 检测状态字段（通常包含status、state等关键词，包括pivot_前缀的情况）
+  const statusField = selectedDimensions.value.find(dim => {
+    const cleanDim = dim.replace(/^pivot_/, '').toLowerCase()
+    return cleanDim.includes('status') || cleanDim.includes('state') || cleanDim.includes('状态')
+  })
+
+  // 获取状态字段的所有唯一值
+  const statusValues = statusField 
+    ? [...new Set(result.value.data.map((row: any) => {
+        // 查找实际的状态字段名（可能是pivot_前缀的）
+        let actualField = statusField
+        // 首先检查columns中是否有完全匹配的字段
+        const matchedColumn = result.value.columns.find((col: string) => 
+          col === statusField || 
+          col === `pivot_${statusField}` ||
+          col.endsWith(statusField)
+        )
+        if (matchedColumn) {
+          actualField = matchedColumn
+        }
+        return row[actualField]
+      }))]
+    : []
+
+  // 为状态值分配颜色
+  const statusColorMap = new Map<string, string>()
+  statusValues.forEach((value, index) => {
+    statusColorMap.set(String(value), statusColors[index % statusColors.length])
+  })
+
+  // 获取状态字段的实际字段名（用于后续显示具体数值）
+  const getStatusFieldName = () => {
+    if (!statusField) return null
+    // 查找实际的状态字段名（可能是pivot_前缀的）
+    const matchedColumn = result.value.columns.find((col: string) => 
+      col === statusField || 
+      col === `pivot_${statusField}` ||
+      col.endsWith(statusField)
+    )
+    return matchedColumn || statusField
+  }
+  const actualStatusField = getStatusFieldName()
+
+  // 提取x轴数据
+  const xAxisData = result.value.data.map((row: any) => {
+    const dimField = selectedDimensions.value[0]
+    if (!dimField) return ''
+    
+    // 查找实际的维度字段名（可能是pivot_前缀的）
+    let actualField = dimField
+    const matchedColumn = result.value.columns.find((col: string) => 
+      col === dimField || 
+      col === `pivot_${dimField}` ||
+      col.endsWith(dimField)
+    )
+    if (matchedColumn) {
+      actualField = matchedColumn
+    }
+    
+    return row[actualField] || ''
+  }).filter((val: any) => val)
+
+  // 提取系列数据
+  const seriesData = selectedMeasures.value.map((measure: string) => {
+    // 查找实际的度量字段名（可能是pivot_前缀的）
+    let actualField = measure
+    const matchedColumn = result.value.columns.find((col: string) => 
+      col === measure || 
+      col === `pivot_${measure}` ||
+      col.endsWith(measure)
+    )
+    if (matchedColumn) {
+      actualField = matchedColumn
+    }
+    
+    return {
+      name: measure,
+      type: form.chart_type,
+      data: result.value.data.map((row: any) => row[actualField] || 0)
+    }
+  })
+
+  // 根据图表类型和数据生成配置
   const option = {
     title: {
       text: form.name,
       left: 'center'
     },
     tooltip: {
-      trigger: 'axis'
+      trigger: form.chart_type === 'pie' ? 'item' : 'axis',
+      formatter: (params: any) => {
+        if (form.chart_type === 'pie') {
+          return `${params.name}: ${params.value} (${params.percent}%)`
+        }
+        if (Array.isArray(params)) {
+          const xAxisValue = params[0]?.axisValue || params[0]?.name || ''
+          let tooltipResult = xAxisValue + '<br/>'
+          
+          // 获取当前数据点的状态值
+          let statusInfo = ''
+          if (actualStatusField && params[0]?.dataIndex !== undefined) {
+            const dataIndex = params[0].dataIndex
+            const row = result.value.data[dataIndex]
+            if (row && actualStatusField in row) {
+              const statusValue = row[actualStatusField]
+              statusInfo = `状态: ${statusValue}<br/>`
+            }
+          }
+          
+          tooltipResult += statusInfo
+          
+          params.forEach((item: any) => {
+            const displayValue = item.value || 0
+            tooltipResult += `${item.marker} ${item.seriesName}: ${displayValue}<br/>`
+          })
+          return tooltipResult
+        } else {
+          const xAxisValue = params.axisValue || params.name || ''
+          let tooltipResult = xAxisValue + '<br/>'
+          
+          // 获取当前数据点的状态值
+          let statusInfo = ''
+          if (actualStatusField && params.dataIndex !== undefined) {
+            const dataIndex = params.dataIndex
+            const row = result.value.data[dataIndex]
+            if (row && actualStatusField in row) {
+              const statusValue = row[actualStatusField]
+              statusInfo = `状态: ${statusValue}<br/>`
+            }
+          }
+          
+          tooltipResult += statusInfo
+          
+          const displayValue = params.value || 0
+          tooltipResult += `${params.marker} ${params.seriesName}: ${displayValue}`
+          return tooltipResult
+        }
+      }
     },
     legend: {
       data: selectedMeasures.value,
@@ -347,16 +512,99 @@ const renderChart = () => {
     },
     xAxis: {
       type: 'category',
-      data: ['一月', '二月', '三月', '四月', '五月', '六月']
+      data: xAxisData
     },
     yAxis: {
       type: 'value'
     },
-    series: selectedMeasures.value.map(measure => ({
-      name: measure,
-      type: form.chart_type,
-      data: [120, 200, 150, 80, 70, 110]
-    }))
+    series: seriesData.map((seriesItem: any, index: number) => {
+      const seriesConfig: any = {
+        name: seriesItem.name,
+        type: seriesItem.type,
+        data: seriesItem.data
+      }
+
+      // 添加数据标签
+      seriesConfig.label = {
+        show: true,
+        position: form.chart_type === 'pie' ? 'outside' : 'top',
+        formatter: (params: any) => {
+          if (form.chart_type === 'pie') {
+            return `${params.name}: ${params.value}`
+          }
+          const displayValue = params.value || 0
+          
+          // 如果有状态字段，显示状态值
+          if (actualStatusField && params.dataIndex !== undefined) {
+            const dataIndex = params.dataIndex
+            const row = result.value.data[dataIndex]
+            if (row && actualStatusField in row) {
+              const statusValue = row[actualStatusField]
+              return `${displayValue}\n状态: ${statusValue}`
+            }
+          }
+          
+          return String(displayValue)
+        },
+        fontSize: 12,
+        color: '#666'
+      }
+
+      // 如果有状态字段，为每个数据点应用对应的颜色
+      if (statusField && statusValues.length > 0) {
+        seriesConfig.data = seriesItem.data.map((value: any, dataIndex: number) => {
+          const row = result.value.data[dataIndex]
+          let statusValue = ''
+          if (row && actualStatusField in row) {
+            statusValue = row[actualStatusField]
+          }
+          return {
+            value: value,
+            itemStyle: {
+              color: statusColorMap.get(String(statusValue)) || statusColors[index % statusColors.length]
+            }
+          }
+        })
+      } else {
+        // 没有状态字段时，每个series使用不同颜色
+        seriesConfig.itemStyle = {
+          color: statusColors[index % statusColors.length]
+        }
+      }
+
+      return seriesConfig
+    })
+  }
+
+  // 饼图特殊处理
+  if (form.chart_type === 'pie') {
+    const pieData = xAxisData.map((xValue: string, index: number) => {
+      const measureValue = seriesData[0].data[index]
+      return {
+        name: xValue,
+        value: measureValue || 0
+      }
+    })
+
+    option.series = [{
+      name: selectedMeasures.value[0],
+      type: 'pie',
+      radius: ['40%', '70%'],
+      data: pieData,
+      label: {
+        show: true,
+        formatter: '{b}: {c} ({d}%)'
+      },
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowOffsetX: 0,
+          shadowColor: 'rgba(0, 0, 0, 0.5)'
+        }
+      }
+    }]
+    delete option.xAxis
+    delete option.yAxis
   }
 
   chartInstance.setOption(option)

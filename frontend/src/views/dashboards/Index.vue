@@ -10,7 +10,23 @@
         </div>
       </el-header>
       <el-main>
-        <el-card>
+        <!-- 导航菜单 -->
+        <el-menu :default-active="activeMenu" class="dashboard-menu" mode="horizontal" @select="handleMenuSelect">
+          <el-menu-item index="dashboards">
+            <el-icon><IEpGrid /></el-icon>
+            <span>仪表盘列表</span>
+          </el-menu-item>
+          <el-menu-item index="charts">
+            <el-icon><IEpDataLine /></el-icon>
+            <span>图表管理</span>
+          </el-menu-item>
+          <el-menu-item index="view">
+            <el-icon><IEpView /></el-icon>
+            <span>查看仪表盘</span>
+          </el-menu-item>
+        </el-menu>
+        
+        <el-card v-show="activeMenu === 'dashboards'">
           <template #header>
             <div class="card-header">
               <span>仪表盘列表</span>
@@ -28,9 +44,12 @@
                   <el-switch v-model="scope.row.is_active" @change="handleStatusChange(scope.row)" />
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="200" fixed="right">
+              <el-table-column label="操作" width="250" fixed="right">
                 <template #default="scope">
-                  <el-button type="primary" size="small" @click="navigateTo(`/dashboards/edit/${scope.row.id}`)">
+                  <el-button type="primary" size="small" @click="navigateTo(`/dashboards/view/${scope.row.id}`)">
+                    查看
+                  </el-button>
+                  <el-button type="success" size="small" @click="navigateTo(`/dashboards/edit/${scope.row.id}`)">
                     编辑
                   </el-button>
                   <el-button type="danger" size="small" @click="handleDelete(scope.row.id)">
@@ -42,7 +61,7 @@
           </div>
         </el-card>
 
-        <el-card>
+        <el-card v-show="activeMenu === 'charts'">
           <template #header>
             <div class="card-header">
               <span>图表管理</span>
@@ -75,6 +94,38 @@
             </el-button>
           </div>
         </el-card>
+
+        <el-card v-show="activeMenu === 'view'">
+          <template #header>
+            <div class="card-header">
+              <span>查看仪表盘</span>
+            </div>
+          </template>
+          <div class="card-content">
+            <div class="dashboard-list">
+              <el-card 
+                v-for="dashboard in dashboards" 
+                :key="dashboard.id"
+                class="dashboard-card"
+                @click="navigateTo(`/dashboards/view/${dashboard.id}`)"
+              >
+                <div class="dashboard-info">
+                  <h3>{{ dashboard.name }}</h3>
+                  <p>{{ dashboard.description || '无描述' }}</p>
+                  <div class="dashboard-stats">
+                    <span>组件数: {{ dashboard.widgets.length }}</span>
+                    <span>刷新间隔: {{ dashboard.refresh_interval }}秒</span>
+                    <span v-if="dashboard.is_active" class="status-active">启用</span>
+                    <span v-else class="status-inactive">禁用</span>
+                  </div>
+                  <el-button type="primary" size="small" class="view-button">
+                    查看仪表盘
+                  </el-button>
+                </div>
+              </el-card>
+            </div>
+          </div>
+        </el-card>
       </el-main>
     </el-container>
   </div>
@@ -85,6 +136,11 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from '../../utils/axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { 
+  Grid as IEpGrid, 
+  DataLine as IEpDataLine, 
+  View as IEpView 
+} from '@element-plus/icons-vue'
 
 interface Dashboard {
   id: number
@@ -116,6 +172,7 @@ interface Chart {
 const router = useRouter()
 const dashboards = ref<Dashboard[]>([])
 const charts = ref<Chart[]>([])
+const activeMenu = ref('dashboards')
 
 onMounted(async () => {
   await fetchDashboards()
@@ -124,6 +181,10 @@ onMounted(async () => {
 
 const navigateTo = (path: string) => {
   router.push(path)
+}
+
+const handleMenuSelect = (index: string) => {
+  activeMenu.value = index
 }
 
 const fetchDashboards = async () => {
@@ -232,6 +293,10 @@ const handleChartDelete = async (id: number) => {
   color: #333;
 }
 
+.dashboard-menu {
+  margin-bottom: 20px;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -242,6 +307,58 @@ const handleChartDelete = async (id: number) => {
   padding: 16px 0;
 }
 
+.dashboard-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.dashboard-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-info h3 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.dashboard-info p {
+  margin: 0 0 15px 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.dashboard-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 15px;
+  font-size: 14px;
+  color: #666;
+}
+
+.status-active {
+  color: #67c23a;
+  font-weight: 500;
+}
+
+.status-inactive {
+  color: #909399;
+}
+
+.view-button {
+  margin-top: 10px;
+}
+
 @media (max-width: 768px) {
   .header-content {
     flex-direction: column;
@@ -250,6 +367,15 @@ const handleChartDelete = async (id: number) => {
 
   .header-content h1 {
     margin-bottom: 10px;
+  }
+  
+  .dashboard-menu {
+    font-size: 12px;
+  }
+  
+  .dashboard-list {
+    grid-template-columns: 1fr;
+    padding: 10px;
   }
 }
 </style>

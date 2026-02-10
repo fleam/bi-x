@@ -162,6 +162,14 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/dashboards/view/:id',
+    component: () => import('./views/dashboards/View.vue'),
+    meta: {
+      title: '仪表盘展示',
+      requireAuth: true
+    }
+  },
+  {
     path: '/permissions',
     component: () => import('./views/permissions/Index.vue'),
     meta: {

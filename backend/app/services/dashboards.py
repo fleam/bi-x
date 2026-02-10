@@ -99,8 +99,8 @@ class DashboardService:
             db_dashboard = Dashboard(
                 name=dashboard.name,
                 description=dashboard.description,
-                layout=dashboard.layout.model_dump(),
-                widgets=[widget.model_dump() for widget in dashboard.widgets],
+                layout=dashboard.layout.model_dump() if hasattr(dashboard.layout, "model_dump") else dashboard.layout,
+                widgets=[widget.model_dump() if hasattr(widget, "model_dump") else widget for widget in dashboard.widgets],
                 refresh_interval=dashboard.refresh_interval
             )
             db.add(db_dashboard)
@@ -148,9 +148,13 @@ class DashboardService:
 
             # 处理嵌套模型
             if "layout" in update_data:
-                update_data["layout"] = update_data["layout"].model_dump()
+                if hasattr(update_data["layout"], "model_dump"):
+                    update_data["layout"] = update_data["layout"].model_dump()
             if "widgets" in update_data:
-                update_data["widgets"] = [widget.model_dump() for widget in update_data["widgets"]]
+                update_data["widgets"] = [
+                    widget.model_dump() if hasattr(widget, "model_dump") else widget 
+                    for widget in update_data["widgets"]
+                ]
 
             # 更新仪表盘
             for key, value in update_data.items():

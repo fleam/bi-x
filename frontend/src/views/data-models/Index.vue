@@ -15,6 +15,9 @@
             <div class="card-header">
               <span>数据模型列表</span>
               <div class="card-header-actions">
+                <el-button type="text" @click="showColumnDropdown">
+                  列显示
+                </el-button>
                 <el-input
                   v-model="searchQuery"
                   placeholder="搜索模型名称"
@@ -34,35 +37,35 @@
               border
               v-loading="loading"
             >
-              <el-table-column prop="id" label="ID" width="80" sortable />
-              <el-table-column prop="name" label="模型名称" sortable />
-              <el-table-column prop="description" label="描述" />
-              <el-table-column label="数据集数量" width="120" sortable>
+              <el-table-column v-if="columns.id.visible" prop="id" label="ID" :width="columns.id.width" sortable />
+              <el-table-column v-if="columns.name.visible" prop="name" label="模型名称" sortable />
+              <el-table-column v-if="columns.description.visible" prop="description" label="描述" />
+              <el-table-column v-if="columns.dataSets.visible" label="数据集数量" :width="columns.dataSets.width" sortable>
                 <template #default="scope">
                   {{ scope.row.data_sets?.length || 0 }}
                 </template>
               </el-table-column>
-              <el-table-column label="维度数" width="100" sortable>
+              <el-table-column v-if="columns.dimensions.visible" label="维度数" :width="columns.dimensions.width" sortable>
                 <template #default="scope">
                   {{ scope.row.dimensions?.length || 0 }}
                 </template>
               </el-table-column>
-              <el-table-column label="度量数" width="100" sortable>
+              <el-table-column v-if="columns.measures.visible" label="度量数" :width="columns.measures.width" sortable>
                 <template #default="scope">
                   {{ scope.row.measures?.length || 0 }}
                 </template>
               </el-table-column>
-              <el-table-column label="层次数" width="100" sortable>
+              <el-table-column v-if="columns.hierarchies.visible" label="层次数" :width="columns.hierarchies.width" sortable>
                 <template #default="scope">
                   {{ scope.row.hierarchies?.length || 0 }}
                 </template>
               </el-table-column>
-              <el-table-column label="模型类型" width="120" sortable>
+              <el-table-column v-if="columns.modelType.visible" label="模型类型" :width="columns.modelType.width" sortable>
                 <template #default="scope">
                   {{ scope.row.model_type || '星型' }}
                 </template>
               </el-table-column>
-              <el-table-column label="状态" width="100">
+              <el-table-column v-if="columns.status.visible" label="状态" :width="columns.status.width">
                 <template #default="scope">
                   <el-switch 
                     v-model="scope.row.is_active" 
@@ -71,17 +74,17 @@
                   />
                 </template>
               </el-table-column>
-              <el-table-column label="创建时间" width="180" sortable>
+              <el-table-column v-if="columns.createdAt.visible" label="创建时间" :width="columns.createdAt.width" sortable>
                 <template #default="scope">
                   {{ formatDate(scope.row.created_at) }}
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="200" fixed="right">
+              <el-table-column v-if="columns.actions.visible" label="操作" :width="columns.actions.width" fixed="right">
                 <template #default="scope">
                   <el-button type="primary" size="small" @click="navigateTo(`/data-models/edit/${scope.row.id}`)">
                     编辑
                   </el-button>
-                  <el-button type="danger" size="small" @click="handleDelete(scope.row.id)" :loading="deleteLoading[scope.row.id]">
+                  <el-button type="danger" size="small" @click="handleDelete(scope.row.id)" :loading="statusLoading[scope.row.id]">
                     删除
                   </el-button>
                 </template>
@@ -102,6 +105,43 @@
         </el-card>
       </el-main>
     </el-container>
+    
+    <!-- 列显示控制菜单 -->
+    <el-dropdown-menu v-model:visible="showColumnMenu" :style="{ left: menuPosition.x + 'px', top: menuPosition.y + 'px' }" trigger="manual">
+      <el-dropdown-item @click="() => toggleColumnVisibility('id')">
+        <el-checkbox v-model="columns.id.visible">{{ columns.id.label }}</el-checkbox>
+      </el-dropdown-item>
+      <el-dropdown-item @click="() => toggleColumnVisibility('name')">
+        <el-checkbox v-model="columns.name.visible">{{ columns.name.label }}</el-checkbox>
+      </el-dropdown-item>
+      <el-dropdown-item @click="() => toggleColumnVisibility('description')">
+        <el-checkbox v-model="columns.description.visible">{{ columns.description.label }}</el-checkbox>
+      </el-dropdown-item>
+      <el-dropdown-item @click="() => toggleColumnVisibility('dataSets')">
+        <el-checkbox v-model="columns.dataSets.visible">{{ columns.dataSets.label }}</el-checkbox>
+      </el-dropdown-item>
+      <el-dropdown-item @click="() => toggleColumnVisibility('dimensions')">
+        <el-checkbox v-model="columns.dimensions.visible">{{ columns.dimensions.label }}</el-checkbox>
+      </el-dropdown-item>
+      <el-dropdown-item @click="() => toggleColumnVisibility('measures')">
+        <el-checkbox v-model="columns.measures.visible">{{ columns.measures.label }}</el-checkbox>
+      </el-dropdown-item>
+      <el-dropdown-item @click="() => toggleColumnVisibility('hierarchies')">
+        <el-checkbox v-model="columns.hierarchies.visible">{{ columns.hierarchies.label }}</el-checkbox>
+      </el-dropdown-item>
+      <el-dropdown-item @click="() => toggleColumnVisibility('modelType')">
+        <el-checkbox v-model="columns.modelType.visible">{{ columns.modelType.label }}</el-checkbox>
+      </el-dropdown-item>
+      <el-dropdown-item @click="() => toggleColumnVisibility('status')">
+        <el-checkbox v-model="columns.status.visible">{{ columns.status.label }}</el-checkbox>
+      </el-dropdown-item>
+      <el-dropdown-item @click="() => toggleColumnVisibility('createdAt')">
+        <el-checkbox v-model="columns.createdAt.visible">{{ columns.createdAt.label }}</el-checkbox>
+      </el-dropdown-item>
+      <el-dropdown-item @click="() => toggleColumnVisibility('actions')">
+        <el-checkbox v-model="columns.actions.visible">{{ columns.actions.label }}</el-checkbox>
+      </el-dropdown-item>
+    </el-dropdown-menu>
   </div>
 </template>
 
@@ -135,6 +175,37 @@ const pageSize = ref(10)
 const sortField = ref('id')
 const sortOrder = ref('ascending')
 const statusLoading = ref<Record<number, boolean>>({})
+
+// 列显示控制
+const columns = ref({
+  id: { label: 'ID', visible: true, width: 80 },
+  name: { label: '模型名称', visible: true },
+  description: { label: '描述', visible: true },
+  dataSets: { label: '数据集数量', visible: true, width: 120 },
+  dimensions: { label: '维度数', visible: false, width: 100 },
+  measures: { label: '度量数', visible: false, width: 100 },
+  hierarchies: { label: '层次数', visible: false, width: 100 },
+  modelType: { label: '模型类型', visible: false, width: 120 },
+  status: { label: '状态', visible: true, width: 100 },
+  createdAt: { label: '创建时间', visible: false, width: 180 },
+  actions: { label: '操作', visible: true, width: 200 }
+})
+
+const showColumnMenu = ref(false)
+const menuPosition = ref({ x: 0, y: 0 })
+
+const toggleColumnVisibility = (column: string) => {
+  columns.value[column].visible = !columns.value[column].visible
+}
+
+const showColumnDropdown = (event: MouseEvent) => {
+  event.preventDefault()
+  menuPosition.value = {
+    x: event.clientX,
+    y: event.clientY
+  }
+  showColumnMenu.value = true
+}
 
 onMounted(async () => {
   await fetchDataModels()
@@ -305,10 +376,12 @@ const formatDate = (dateString: string) => {
 .card-header-actions {
   display: flex;
   align-items: center;
+  gap: 10px;
 }
 
 .card-content {
   padding: 16px 0;
+  overflow-x: auto;
 }
 
 .pagination-container {
@@ -337,12 +410,36 @@ const formatDate = (dateString: string) => {
     width: 100%;
   }
 
-  .card-header-actions .el-input {
-    width: 100% !important;
-  }
-
   .pagination-container {
     justify-content: center;
   }
+}
+
+/* 列显示控制菜单样式 */
+.el-dropdown-menu {
+  position: fixed !important;
+  z-index: 1000;
+  margin: 0;
+  padding: 8px 0;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  min-width: 150px;
+}
+
+.el-dropdown-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.3s;
+}
+
+.el-dropdown-item:hover {
+  background-color: #f5f7fa;
+}
+
+.el-checkbox {
+  width: 100%;
+  margin: 0;
 }
 </style>

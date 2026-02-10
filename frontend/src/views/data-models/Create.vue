@@ -683,8 +683,14 @@ const handleReset = () => {
   align-items: center;
 }
 
+.card-header-actions {
+  display: flex;
+  align-items: center;
+}
+
 .card-content {
   padding: 16px 0;
+  overflow-x: auto;
 }
 
 @media (max-width: 768px) {
@@ -695,6 +701,16 @@ const handleReset = () => {
 
   .header-content h1 {
     margin-bottom: 10px;
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .card-header-actions {
+    margin-top: 10px;
+    width: 100%;
   }
 }
 </style>
