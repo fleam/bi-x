@@ -15,9 +15,49 @@
             <div class="card-header">
               <span>数据模型列表</span>
               <div class="card-header-actions">
-                <el-button type="text" @click="showColumnDropdown">
-                  列显示
-                </el-button>
+                <el-dropdown @command="toggleColumnVisibility">
+                  <el-button type="text">
+                    列显示
+                    <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="id">
+                        <el-checkbox v-model="columns.id.visible">{{ columns.id.label }}</el-checkbox>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="name">
+                        <el-checkbox v-model="columns.name.visible">{{ columns.name.label }}</el-checkbox>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="description">
+                        <el-checkbox v-model="columns.description.visible">{{ columns.description.label }}</el-checkbox>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="dataSets">
+                        <el-checkbox v-model="columns.dataSets.visible">{{ columns.dataSets.label }}</el-checkbox>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="dimensions">
+                        <el-checkbox v-model="columns.dimensions.visible">{{ columns.dimensions.label }}</el-checkbox>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="measures">
+                        <el-checkbox v-model="columns.measures.visible">{{ columns.measures.label }}</el-checkbox>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="hierarchies">
+                        <el-checkbox v-model="columns.hierarchies.visible">{{ columns.hierarchies.label }}</el-checkbox>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="modelType">
+                        <el-checkbox v-model="columns.modelType.visible">{{ columns.modelType.label }}</el-checkbox>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="status">
+                        <el-checkbox v-model="columns.status.visible">{{ columns.status.label }}</el-checkbox>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="createdAt">
+                        <el-checkbox v-model="columns.createdAt.visible">{{ columns.createdAt.label }}</el-checkbox>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="actions">
+                        <el-checkbox v-model="columns.actions.visible">{{ columns.actions.label }}</el-checkbox>
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
                 <el-input
                   v-model="searchQuery"
                   placeholder="搜索模型名称"
@@ -105,43 +145,6 @@
         </el-card>
       </el-main>
     </el-container>
-    
-    <!-- 列显示控制菜单 -->
-    <el-dropdown-menu v-model:visible="showColumnMenu" :style="{ left: menuPosition.x + 'px', top: menuPosition.y + 'px' }" trigger="manual">
-      <el-dropdown-item @click="() => toggleColumnVisibility('id')">
-        <el-checkbox v-model="columns.id.visible">{{ columns.id.label }}</el-checkbox>
-      </el-dropdown-item>
-      <el-dropdown-item @click="() => toggleColumnVisibility('name')">
-        <el-checkbox v-model="columns.name.visible">{{ columns.name.label }}</el-checkbox>
-      </el-dropdown-item>
-      <el-dropdown-item @click="() => toggleColumnVisibility('description')">
-        <el-checkbox v-model="columns.description.visible">{{ columns.description.label }}</el-checkbox>
-      </el-dropdown-item>
-      <el-dropdown-item @click="() => toggleColumnVisibility('dataSets')">
-        <el-checkbox v-model="columns.dataSets.visible">{{ columns.dataSets.label }}</el-checkbox>
-      </el-dropdown-item>
-      <el-dropdown-item @click="() => toggleColumnVisibility('dimensions')">
-        <el-checkbox v-model="columns.dimensions.visible">{{ columns.dimensions.label }}</el-checkbox>
-      </el-dropdown-item>
-      <el-dropdown-item @click="() => toggleColumnVisibility('measures')">
-        <el-checkbox v-model="columns.measures.visible">{{ columns.measures.label }}</el-checkbox>
-      </el-dropdown-item>
-      <el-dropdown-item @click="() => toggleColumnVisibility('hierarchies')">
-        <el-checkbox v-model="columns.hierarchies.visible">{{ columns.hierarchies.label }}</el-checkbox>
-      </el-dropdown-item>
-      <el-dropdown-item @click="() => toggleColumnVisibility('modelType')">
-        <el-checkbox v-model="columns.modelType.visible">{{ columns.modelType.label }}</el-checkbox>
-      </el-dropdown-item>
-      <el-dropdown-item @click="() => toggleColumnVisibility('status')">
-        <el-checkbox v-model="columns.status.visible">{{ columns.status.label }}</el-checkbox>
-      </el-dropdown-item>
-      <el-dropdown-item @click="() => toggleColumnVisibility('createdAt')">
-        <el-checkbox v-model="columns.createdAt.visible">{{ columns.createdAt.label }}</el-checkbox>
-      </el-dropdown-item>
-      <el-dropdown-item @click="() => toggleColumnVisibility('actions')">
-        <el-checkbox v-model="columns.actions.visible">{{ columns.actions.label }}</el-checkbox>
-      </el-dropdown-item>
-    </el-dropdown-menu>
   </div>
 </template>
 
@@ -150,6 +153,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from '../../utils/axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { ArrowDown } from '@element-plus/icons-vue'
 
 interface DataModel {
   id: number
@@ -191,20 +195,8 @@ const columns = ref({
   actions: { label: '操作', visible: true, width: 200 }
 })
 
-const showColumnMenu = ref(false)
-const menuPosition = ref({ x: 0, y: 0 })
-
 const toggleColumnVisibility = (column: string) => {
   columns.value[column].visible = !columns.value[column].visible
-}
-
-const showColumnDropdown = (event: MouseEvent) => {
-  event.preventDefault()
-  menuPosition.value = {
-    x: event.clientX,
-    y: event.clientY
-  }
-  showColumnMenu.value = true
 }
 
 onMounted(async () => {
@@ -413,33 +405,5 @@ const formatDate = (dateString: string) => {
   .pagination-container {
     justify-content: center;
   }
-}
-
-/* 列显示控制菜单样式 */
-.el-dropdown-menu {
-  position: fixed !important;
-  z-index: 1000;
-  margin: 0;
-  padding: 8px 0;
-  background-color: #fff;
-  border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  min-width: 150px;
-}
-
-.el-dropdown-item {
-  padding: 8px 16px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.3s;
-}
-
-.el-dropdown-item:hover {
-  background-color: #f5f7fa;
-}
-
-.el-checkbox {
-  width: 100%;
-  margin: 0;
 }
 </style>
